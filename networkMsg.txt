@@ -15,3 +15,5 @@ A space.
 Next few bytes (atm only): amount or balance, if applicable, surrounded by $'s. Example: $14.21$
 A space.
 Next many bytes(atm only): account, finished by an asterisk.
+A space.
+Padding to match a predetermined total message length. This is to prevent attackers from knowing the operation or account from the message length.
