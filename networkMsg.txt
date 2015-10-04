@@ -12,11 +12,11 @@ Atm only:'action='+'n','d','w', or 'g', depending on the action solicited
 A space.
 Atm only: 'atmAns'= 'y' or 'n', meaning yes or no to whether the atm's error checking is clean. Messages marked 'no' will help the bank print the error.
 A space. 
-Atm only: '$=' + amount or balance. Not applicable to all messages.
+'$=' + amount or balance. Applicable to all atm messages except 'g'. Only applicable to bank's answer to 'g'
 A space.
 Atm only: 'account=' + account name.
 A space.
-Padding to match a predetermined total message length. This is to prevent attackers from knowing the operation or account from the message length.
+'pad='+Padding to match a predetermined total message length. This is to prevent attackers from knowing the operation or account from the message length.
 
 Examples, padding ommitted:
 Atm message:

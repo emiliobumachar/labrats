@@ -7,7 +7,8 @@ def parse(msgPayload):
                      'action',
                      'atmAns',
                      '$',
-                     'account']
+                     'account',
+					 'pad']
 	def checkSignature(blob):
 		return blob
 	def decrypt(blob):
