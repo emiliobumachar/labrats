@@ -1,0 +1,2 @@
+replay attack, deposit 10 dollars in my account, make it count as 1000.
+withdraw exactly $0.00, as explicitly disclaimed by the spec
