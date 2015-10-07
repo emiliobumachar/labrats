@@ -29,7 +29,10 @@ class Bank:
 			data = cli_conn.recv(1024) # check buffer limit
 			print 'data:', data
 
+			data = 'received: ' + data
 			#treatMessage(self,cli_conn.?)
+
+			cli_conn.send(data)
 			cli_conn.close()
 			
 	def sendReply(self, bankAnswer):
