@@ -4,23 +4,33 @@ import parser
 import string
 import random
 rand=random.SystemRandom()
-global LENGTH_OF_ALL_PLAINTEXTS=333
+LENGTH_OF_ALL_PLAINTEXTS = 333
+
 class Bank:
+
 	def __init__(self):
 		self.knownAtms={} #{atmID-as-string:{'incoming':latest-incoming-couter-as-string, 'outgoing':latest-outgoing-couter-as-string} for each atm that ever sent a message}
 		self.accountHolders={} #{account:balance for every account}
-		self.s = socket.socket(socket.PF_INET, socket.SOCK_STREAM)
-		self.listen2network(self)
+		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.listen2network()
 		self.actionList={'n':self.treatNewAccount,
 						 'd':self.treatDeposit,
 						 'w':self.treatWithdrawal,
 						 'g':self.treatGetBalance}
+
 	def listen2network(self):
-		self.s.listen()
+		self.s.bind(('127.0.0.1', 3000))
+		self.s.listen(1)
+
 		while 1:
-			c = s.accept()
-			cli_sock, cli_addr = c
-			treatMessage(self,cli_sock.?)
+			c = self.s.accept()
+			cli_conn, cli_addr = c
+
+			data = cli_conn.recv(1024) # check buffer limit
+			print 'data:', data
+
+			#treatMessage(self,cli_conn.?)
+			cli_conn.close()
 			
 	def sendReply(self, bankAnswer):
 		replyText=('atmID='+self.fieldsDict['atmID']+
@@ -31,7 +41,7 @@ class Bank:
 			replyText=replyText+' $='+str(self.accountHolders[self.fieldsDict['account']])
 		replyText=replyText+' pad='
 		replyText=replyText+rand.choice(string.ascii_letters)*(LENGTH_OF_ALL_PLAINTEXTS-len(replyText))
-		self.cli_sock.?(replyText)
+		#self.cli_sock.(replyText)
 		self.knownAtms[self.fieldsDict['atmID']]['outgoing']=str(1+int(self.knownAtms[self.fieldsDict['atmID']]['outgoing']))
 		
 	def treatNewAccount(self):
@@ -42,6 +52,7 @@ class Bank:
 			self.accountHolders[self.fieldsDict['account']]=self.fieldsDict['$']
 			self.sendReply(True)
 			print('{"account":"'+self.fieldsDict['account']+'","initial_balance":'+str(self.fieldsDict['$'])+'}')
+
 	def treatDeposit(self):
 		if (self.fieldsDict['account'] not in self.accountHolders
 		or  self.fieldsDict['$']<=0.00):
@@ -50,6 +61,7 @@ class Bank:
 			self.accountHolders[self.fieldsDict['account']]=self.accountHolders[self.fieldsDict['account']]+self.fieldsDict['$']
 			self.sendReply(True)
 			print('{"account":"'+self.fieldsDict['account']+'","deposit":'+str(self.fieldsDict['$'])+'}')
+
 	def treatWithdrawal(self):
 		if (self.fieldsDict['account'] not in self.accountHolders
 		or  self.fieldsDict['$']<=0.00
@@ -59,14 +71,13 @@ class Bank:
 			self.accountHolders[self.fieldsDict['account']]=self.accountHolders[self.fieldsDict['account']]-self.fieldsDict['$']
 			self.sendReply(True)
 			print('{"account":"'+self.fieldsDict['account']+'","withdraw":'+str(self.fieldsDict['$'])+'}')
+
 	def treatGetBalance(self):
-		if (self.fieldsDict['account'] not in self.accountHolders
+		if (self.fieldsDict['account'] not in self.accountHolders):
 			self.sendReply(False)
 		else:
 			self.sendReply(True)
 			print('{"account":"'+self.fieldsDict['account']+'","balance":'+str(self.accountHolders[self.fieldsDict['account']])+'}')
-
-
 	
 	def treatMessage(self, message):
 		self.fieldsDict=parser.parse(message)
