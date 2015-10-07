@@ -1,6 +1,11 @@
+import socket
+
 balance=10.00
+
+#TODO get operation from input
 print("    RatLABS ATM    ")
 print("""
+0)        TestTCP
 1)        Balance
 2)        Withdraw
 3)        Deposit
@@ -9,6 +14,14 @@ print("""
 
 """)
 Option=int(input("Enter Option: "))
+
+if Option == 0:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(('127.0.0.1', 3000)) #TODO read ip and port
+    s.send('tcp socket test')
+    data = s.recv(1024) #TODO define limit
+    s.close()
+    print data
 
 if Option==1:
     print("Balance   ",balance)
