@@ -26,7 +26,7 @@ class Bank:
 		
 
 	def listen2network(self):
-		self.s.bind(('127.0.0.11', 3000))
+		self.s.bind(('127.0.0.1', 3000))
 		self.s.listen(1)
 
 		while 1:
