@@ -3,13 +3,23 @@ import socket
 import parser
 import string
 import random
+import os
 rand=random.SystemRandom()
 LENGTH_OF_ALL_PLAINTEXTS = 333
+authFileName="bank.auth" #todo: get this name as a parameter
 
+class ret255(Exception):
+	pass
 class Bank:
 
 	def __init__(self):
 		self.knownAtms={} #{atmID-as-string:{'incoming':latest-incoming-couter-as-string, 'outgoing':latest-outgoing-couter-as-string} for each atm that ever sent a message}
+		secretKey=rand.randint(0,2**256-1)
+		if os.path.isfile(authFileName):
+			raise ret255
+		with open (authFileName,'w') as authFile:
+			authFile.write(str(secretKey))
+		
 		self.accountHolders={} #{account:balance for every account}
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.listen2network()
@@ -92,4 +102,8 @@ class Bank:
 		assert self.fieldsDict['action'] in self.actionList
 		self.actionList[self.fieldsDict['action']]()
 		
-bankObject=Bank()	
+try:
+	bankObject=Bank()	
+except ret255:
+	print ('todo: return 255')
+	#todo: return 255
