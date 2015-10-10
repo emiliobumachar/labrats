@@ -1,15 +1,25 @@
+#!/usr/bin/python
+
 import argparse
 import socket
 import parser
 import string
 import random
+import sys
+import re
+
 rand=random.SystemRandom()
 LENGTH_OF_ALL_PLAINTEXTS = 333
 
 class Bank:
 
 	def __init__(self):
+		self.port = 3000
+		self.authFile = 'bank.auth'
+		self.checkArguments()
+		#self.createAuthFile()
 		self.knownAtms={} #{atmID-as-string:{'incoming':latest-incoming-couter-as-string, 'outgoing':latest-outgoing-couter-as-string} for each atm that ever sent a message}
+		self.fieldsDict={}
 		self.accountHolders={} #{account:balance for every account}
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.listen2network()
@@ -18,8 +28,60 @@ class Bank:
 						 'w':self.treatWithdrawal,
 						 'g':self.treatGetBalance}
 
+	def checkArguments(self):
+		#print sys.argv
+		#['./bank.py', '-p', '1024', '-s', 'auth.file']
+
+		try:
+			argc = len(sys.argv)
+
+			if argc > 5:
+				raise Exception
+
+			index = 0
+			portSpecified = False
+			authFileSpecified = False
+
+			while index < argc:
+
+				if index == 0:
+					index += 1
+					continue
+
+				elif (sys.argv[index] == '-p') and (portSpecified == False):
+					index += 1
+					portSpecified = True
+					self.port = int(sys.argv[index])
+
+					#port number validation
+					if self.port < 1024 or self.port > 65535:
+						raise Exception
+
+				elif (sys.argv[index] == '-s') and (authFileSpecified == False):
+					index += 1
+					authFileSpecified = True
+					self.authFile = str(sys.argv[index])
+
+					#authFile name validation
+					if self.authFile == '.' or self.authFile == '..':
+						raise Exception
+
+					if not re.match('[_\-\.0-9a-z]{1,255}', self.authFile):
+						raise Exception
+
+				else:
+					raise Exception
+
+				index += 1
+
+		except:
+			sys.exit(-1)
+
+		print 'Bank server running on port:', self.port
+		print 'AuthFile name:', self.authFile
+
 	def listen2network(self):
-		self.s.bind(('127.0.0.1', 3000))
+		self.s.bind(('127.0.0.1', self.port))
 		self.s.listen(1)
 
 		while 1:
@@ -30,7 +92,7 @@ class Bank:
 			print 'data:', data
 
 			data = 'received: ' + data
-			#treatMessage(self,cli_conn.?)
+			#self.treatMessage(self, data)
 
 			cli_conn.send(data)
 			cli_conn.close()
