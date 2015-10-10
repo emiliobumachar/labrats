@@ -51,28 +51,31 @@ class Bank:
 			elif (sys.argv[index] == '-p') and (portSpecified == False):
 				index += 1
 				portSpecified = True
+				validateNumbers(sys.argv[index])
 				self.port = int(sys.argv[index])
 
-				#port number validation
-				if self.port < 1024 or self.port > 65535:
-					raise ret255
+			elif (sys.argv[index][0:2] == '-p') and (portSpecified == False):
+				portSpecified = True
+				portString = sys.argv[index][2:]
+				validateNumbers(portString)
+				self.port = int(portString)
 
 			elif (sys.argv[index] == '-s') and (authFileSpecified == False):
 				index += 1
 				authFileSpecified = True
 				self.authFileName = str(sys.argv[index])
 
-				#authFile name validation
-				if self.authFileName == '.' or self.authFileName == '..':
-					raise ret255
-
-				if not re.match('[_\-\.0-9a-z]{1,255}', self.authFileName):
-					raise ret255
+			elif (sys.argv[index][0:2] == '-s') and (authFileSpecified == False):
+				authFileSpecified = True
+				self.authFileName = str(sys.argv[index][2:])
 
 			else:
 				raise ret255
 
 			index += 1
+
+		validatePortNumber(self.port)
+		validateFileName(self.authFileName)
 
 		print 'Bank server running on port:', self.port
 		print 'AuthFile name:', self.authFileName
