@@ -3,6 +3,7 @@ import socket
 import os
 import sys
 import re
+import signal
 from common import *
 
 class Bank:
@@ -14,7 +15,10 @@ class Bank:
 
 		self.secretKey=rand.randint(0,2**256-1)
 		self.createAuthFile()
-	
+
+		signal.signal(signal.SIGINT, self.exit_clean)
+		signal.signal(signal.SIGTERM, self.exit_clean)
+
 		self.knownAtms={} #{atmID-as-string:{'incoming':latest-incoming-couter-as-string, 'outgoing':latest-outgoing-couter-as-string} for each atm that ever sent a message}
 
 		self.actionList={'n':self.treatNewAccount,
@@ -56,13 +60,13 @@ class Bank:
 			elif (sys.argv[index] == '-s') and (authFileSpecified == False):
 				index += 1
 				authFileSpecified = True
-				self.authFile = str(sys.argv[index])
+				self.authFileName = str(sys.argv[index])
 
 				#authFile name validation
-				if self.authFile == '.' or self.authFile == '..':
+				if self.authFileName == '.' or self.authFileName == '..':
 					raise ret255
 
-				if not re.match('[_\-\.0-9a-z]{1,255}', self.authFile):
+				if not re.match('[_\-\.0-9a-z]{1,255}', self.authFileName):
 					raise ret255
 
 			else:
@@ -80,6 +84,10 @@ class Bank:
 		with open (self.authFileName,'w') as authFile:
 			authFile.write(str(self.secretKey))
 
+		print 'created\n'
+
+	def exit_clean(self, signum, frame):
+		sys.exit(0)
 
 	def listen2network(self):
 		self.s.bind(('127.0.0.1', 3000))
