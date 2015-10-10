@@ -1,6 +1,8 @@
 import string
 import random
 import socket
+import re
+
 rand=random.SystemRandom()
 
 class ret255(Exception):
@@ -37,3 +39,18 @@ def msgParse(msgPayload):
 	fieldsDict = {ft[0]:ft[1] for ft in fieldsTuples}
 	assert all(t in validTitles for t in fieldsDict)
 	return fieldsDict
+
+def validateNumbers(number):
+	if not re.match('^(0|[1-9][0-9]*)$', number):
+		raise ret255
+
+def validatePortNumber(port):
+	if port < 1024 or port > 65535:
+		raise ret255
+
+def validateFileName(fileName):
+	if fileName == '.' or fileName == '..':
+		raise ret255
+
+	if not re.match('^[_\-\.0-9a-z]{1,255}$', fileName):
+		raise ret255
