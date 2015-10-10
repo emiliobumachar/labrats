@@ -1,4 +1,22 @@
-def parse(msgPayload):
+import string
+import random
+import socket
+rand=random.SystemRandom()
+
+class ret255(Exception):
+	pass
+LENGTH_OF_ALL_PLAINTEXTS = 333
+
+def sendPlainText(conn, pText):
+	tx=pText
+	tx=tx+' pad=x'
+	tx=tx+rand.choice(string.ascii_letters)*(LENGTH_OF_ALL_PLAINTEXTS-len(tx))
+	conn.send(tx)
+	
+def debug(s):
+	print(s) #change to 'pass' to deliver.
+	
+def msgParse(msgPayload):
 	'''Returns a dictionary with the field titles as keys. Raises an error if signature does not match, decryption fails, or invalid field.'''
 	validTitles=['atmID',
                      'msgCounter',

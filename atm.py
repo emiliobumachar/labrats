@@ -1,52 +1,59 @@
 import socket
+from common import *
+
 
 balance=10.00
+atmID=str(rand.randint(0,1e12))
 
 #TODO get operation from input
 print("    RatLABS ATM    ")
 print("""
-0)        TestTCP
-1)        Balance
-2)        Withdraw
-3)        Deposit
-4)        Quit
+g)        Balance
+w)        Withdraw
+d)        Deposit
+q)        Quit
+n)	  New Account
 
 
 """)
-Option=int(input("Enter Option: "))
 
-if Option == 0:
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect(('127.0.0.1', 3000)) #TODO read ip and port
-    s.send('tcp socket test')
-    data = s.recv(1024) #TODO define limit
-    s.close()
-    print data
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect(('127.0.0.1', 3000)) #TODO read ip and port
+Option=99
+while Option!='q':
+        Option=raw_input("Enter Option: ")
 
-if Option==1:
-    print("Balance   ",balance)
+        if Option=='g':
+                print("Balance   ",balance)
+                sendPlainText(s, 'atmID='+atmID+' action=g atmAns=y account=SomeGuy')
+
+        if Option=='w':
+                print("Balance    ",balance)
+                Withdraw=float(input("Enter Withdraw amount  "))
+                if Withdraw>0:
+                        forewardbalance=(balance-Withdraw)
+                        print("Foreward Balance   ",forewardbalance)
+                        sendPlainText(s, 'atmID='+atmID+' action=w atmAns=y $='+str(Withdraw)+' account=SomeGuy')
+                elif Withdraw>balance:
+                        print("No funs in account")
+                else:
+                        print("None withdraw made")
+
+        if Option=='d':
+                print("Balance   ",balance)
+                Deposit=float(input("Enter deposit amount  "))
+                if Deposit>0:
+                        forewardbalance=(balance+Deposit)
+                        print("Forewardbalance   ",forewardbalance)
+                        sendPlainText(s, 'atmID='+atmID+' action=d atmAns=y $='+str(Deposit)+' account=SomeGuy')
+                else:
+                        print("None deposit made")
+                        sendPlainText(s, 'atmID='+atmID+' action=d atmAns=n $='+str(Deposit)+' account=SomeGuy')
+        if Option=='n':
+                sendPlainText(s, 'atmID='+atmID+' action=n atmAns=y $='+str(balance)+' account=SomeGuy')
 
 
-if Option==2:
-    print("Balance    ",balance)
-    Withdraw=float(input("Enter Withdraw amount  "))
-    if Withdraw>0:
-        forewardbalance=(balance-Withdraw)
-        print("Foreward Balance   ",forewardbalance)
-    elif Withdraw>balance:
-        print("No funs in account")
-    else:
-        print("None withdraw made")
+s.close()
+exit()
+	
 
-if Option==3:
-    print("Balance   ",balance)
-    Deposit=float(input("Enter deposit amount  "))
-    if Deposit>0:
-        forewardbalance=(balance+Deposit)
-        print("Forewardbalance   ",forewardbalance)
-    else:
-        print("None deposit made")
-
-
-if Option==4:
-    exit()
