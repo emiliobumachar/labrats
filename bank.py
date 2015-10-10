@@ -11,15 +11,12 @@ class Bank:
 		self.port = 3000
 		self.authFileName = 'bank.auth'
 		self.checkArguments()
-		#self.createAuthFile()
+
+		self.secretKey=rand.randint(0,2**256-1)
+		self.createAuthFile()
 	
 		self.knownAtms={} #{atmID-as-string:{'incoming':latest-incoming-couter-as-string, 'outgoing':latest-outgoing-couter-as-string} for each atm that ever sent a message}
-		secretKey=rand.randint(0,2**256-1)
-		if os.path.isfile(self.authFileName):
-			debug('File already exists')
-			#raise ret255
-		with open (self.authFileName,'w') as authFile:
-			authFile.write(str(secretKey))
+
 		self.actionList={'n':self.treatNewAccount,
 						 'd':self.treatDeposit,
 						 'w':self.treatWithdrawal,
@@ -32,70 +29,74 @@ class Bank:
 		#print sys.argv
 		#['./bank.py', '-p', '1024', '-s', 'auth.file']
 
-		try:
-			argc = len(sys.argv)
+		argc = len(sys.argv)
 
-			if argc > 5:
-				raise Exception
+		if argc > 5:
+			raise ret255
 
-			index = 0
-			portSpecified = False
-			authFileSpecified = False
+		index = 0
+		portSpecified = False
+		authFileSpecified = False
 
-			while index < argc:
+		while index < argc:
 
-				if index == 0:
-					index += 1
-					continue
-
-				elif (sys.argv[index] == '-p') and (portSpecified == False):
-					index += 1
-					portSpecified = True
-					self.port = int(sys.argv[index])
-
-					#port number validation
-					if self.port < 1024 or self.port > 65535:
-						raise Exception
-
-				elif (sys.argv[index] == '-s') and (authFileSpecified == False):
-					index += 1
-					authFileSpecified = True
-					self.authFile = str(sys.argv[index])
-
-					#authFile name validation
-					if self.authFile == '.' or self.authFile == '..':
-						raise Exception
-
-					if not re.match('[_\-\.0-9a-z]{1,255}', self.authFile):
-						raise Exception
-
-				else:
-					raise Exception
-
+			if index == 0:
 				index += 1
+				continue
 
-		except:
-			sys.exit(-1)
+			elif (sys.argv[index] == '-p') and (portSpecified == False):
+				index += 1
+				portSpecified = True
+				self.port = int(sys.argv[index])
+
+				#port number validation
+				if self.port < 1024 or self.port > 65535:
+					raise ret255
+
+			elif (sys.argv[index] == '-s') and (authFileSpecified == False):
+				index += 1
+				authFileSpecified = True
+				self.authFile = str(sys.argv[index])
+
+				#authFile name validation
+				if self.authFile == '.' or self.authFile == '..':
+					raise ret255
+
+				if not re.match('[_\-\.0-9a-z]{1,255}', self.authFile):
+					raise ret255
+
+			else:
+				raise ret255
+
+			index += 1
 
 		print 'Bank server running on port:', self.port
-		print 'AuthFile name:', self.authFile
+		print 'AuthFile name:', self.authFileName
+
+	def createAuthFile(self):
+		if os.path.isfile(self.authFileName):
+			debug('File already exists')
+			raise ret255
+		with open (self.authFileName,'w') as authFile:
+			authFile.write(str(self.secretKey))
+
 
 	def listen2network(self):
 		self.s.bind(('127.0.0.1', 3000))
 		self.s.listen(1)
 
 		while 1:
-			self.c = self.s.accept()
-			self.cli_conn, self.cli_addr = self.c
+			c = self.s.accept()
+			cli_conn, cli_addr = self.c
 
-			data = self.cli_conn.recv(1024) # check buffer limit
+			data = cli_conn.recv(1024) # check buffer limit
 			debug( 'data:'+data)
 
 			#data = 'received: ' + data
 			self.treatMessage(data)
 
 			#self.cli_conn.send(data)
-			self.cli_conn.close()
+			cli_conn.close()
 			
 	def sendReply(self, bankAnswer):
 		replyText=('atmID='+self.fieldsDict['atmID']+
@@ -157,5 +158,4 @@ class Bank:
 try:
 	bankObject=Bank()	
 except ret255:
-	print ('todo: return 255')
-	#todo: return 255
+	sys.exit(-1)
