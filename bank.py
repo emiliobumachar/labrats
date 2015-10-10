@@ -1,8 +1,6 @@
-import argparse
 import socket
 import os
 import sys
-import re
 import signal
 from common import *
 
@@ -88,6 +86,7 @@ class Bank:
 			authFile.write(str(self.secretKey))
 
 		print 'created\n'
+		sys.stdout.flush()
 
 	def exit_clean(self, signum, frame):
 		sys.exit(0)
@@ -100,14 +99,22 @@ class Bank:
 			c = self.s.accept()
 			cli_conn, cli_addr = self.c
 
-			data = cli_conn.recv(1024) # check buffer limit
-			debug( 'data:'+data)
+			try:
+				data = cli_conn.recv(1024) # check buffer limit
+				debug( 'data:'+data)
 
-			#data = 'received: ' + data
-			self.treatMessage(data)
+				#data = 'received: ' + data
+				self.treatMessage(data)
 
-			#self.cli_conn.send(data)
-			cli_conn.close()
+				#self.cli_conn.send(data)
+
+			except:
+				print 'protocol_error\n'
+				sys.stdout.flush()
+
+			finally:
+				cli_conn.close()
+
 			
 	def sendReply(self, bankAnswer):
 		replyText=('atmID='+self.fieldsDict['atmID']+
@@ -127,6 +134,7 @@ class Bank:
 			self.accountHolders[self.fieldsDict['account']]=self.fieldsDict['$']
 			self.sendReply(True)
 			print('{"account":"'+self.fieldsDict['account']+'","initial_balance":'+str(self.fieldsDict['$'])+'}')
+			sys.stdout.flush()
 
 	def treatDeposit(self):
 		if (self.fieldsDict['account'] not in self.accountHolders
@@ -136,6 +144,7 @@ class Bank:
 			self.accountHolders[self.fieldsDict['account']]=self.accountHolders[self.fieldsDict['account']]+self.fieldsDict['$']
 			self.sendReply(True)
 			print('{"account":"'+self.fieldsDict['account']+'","deposit":'+str(self.fieldsDict['$'])+'}')
+			sys.stdout.flush()
 
 	def treatWithdrawal(self):
 		if (self.fieldsDict['account'] not in self.accountHolders
@@ -146,6 +155,7 @@ class Bank:
 			self.accountHolders[self.fieldsDict['account']]=self.accountHolders[self.fieldsDict['account']]-self.fieldsDict['$']
 			self.sendReply(True)
 			print('{"account":"'+self.fieldsDict['account']+'","withdraw":'+str(self.fieldsDict['$'])+'}')
+			sys.stdout.flush()
 
 	def treatGetBalance(self):
 		if (self.fieldsDict['account'] not in self.accountHolders):
@@ -153,6 +163,7 @@ class Bank:
 		else:
 			self.sendReply(True)
 			print('{"account":"'+self.fieldsDict['account']+'","balance":'+str(self.accountHolders[self.fieldsDict['account']])+'}')
+			sys.stdout.flush()
 	
 	def treatMessage(self, message):
 		self.fieldsDict=msgParse(message)
