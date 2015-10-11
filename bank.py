@@ -98,12 +98,9 @@ class Bank:
 
 			try:
 				data = self.cli_conn.recv(1024) # check buffer limit
-				debug( 'data:' + data)
+				#debug( 'data:' + data)
 
-				#data = 'received: ' + data
 				self.treatMessage(data)
-
-				#self.cli_conn.send(data)
 
 			except Exception, e:
 				print 'protocol_error'
@@ -128,7 +125,7 @@ class Bank:
 			accountDetails = dict()
 			accountDetails['timestamp'] = float(self.fieldsDict['timestamp'])
 			accountDetails['pin'] = str(rand.randint(0, 1e12))
-			accountDetails['$'] = self.fieldsDict['$']
+			accountDetails['$'] = float(self.fieldsDict['$'])
 
 			self.accountHolders[self.fieldsDict['account']] = accountDetails
 
@@ -149,36 +146,25 @@ class Bank:
 			sys.stdout.flush()
 
 	def treatWithdrawal(self):
-		if (self.fieldsDict['account'] not in self.accountHolders
-		or  self.fieldsDict['$']<=0.00
-		or  self.accountHolders[self.fieldsDict['account']]<self.fieldsDict['$']):
-			self.sendReply(False)
-		else:
-			self.accountHolders[self.fieldsDict['account']]=self.accountHolders[self.fieldsDict['account']]-self.fieldsDict['$']
-			self.sendReply(True)
-			print('{"account":"'+self.fieldsDict['account']+'","withdraw":'+str(self.fieldsDict['$'])+'}')
-			sys.stdout.flush()
+		if self.validateIncomingOperation():
+			currentBalance = self.accountHolders[self.fieldsDict['account']]['$']
+			withdrawAmount = float(self.fieldsDict['$'])
+
+			if  (self.fieldsDict['$'] <= 0.00
+				or  currentBalance < withdrawAmount):
+				self.sendReply(False)
+			else:
+				self.accountHolders[self.fieldsDict['account']]['$'] = currentBalance - withdrawAmount
+
+				message = ' timestamp=' + self.fieldsDict['timestamp']
+
+				self.sendReply(True, message)
+
+				print('{"account":"' + self.fieldsDict['account'] + '","withdraw":' + self.fieldsDict['$'] + '}')
+				sys.stdout.flush()
 
 	def treatGetBalance(self):
-		if self.fieldsDict['account'] not in self.accountHolders:
-			debug('account doesnt exist')
-			self.sendReply(False)
-
-		elif self.accountHolders[self.fieldsDict['account']]['pin'] != self.fieldsDict['pin']:
-			debug('server pin: ' + self.accountHolders[self.fieldsDict['account']]['pin'])
-			debug('atm pin: ' + self.fieldsDict['pin'])
-			debug('invalid pin')
-			self.sendReply(False)
-
-		elif self.accountHolders[self.fieldsDict['account']]['timestamp'] >= float(self.fieldsDict['timestamp']):
-			debug('sever timestamp: ' + self.accountHolders[self.fieldsDict['account']]['timestamp'])
-			debug('atm timestamp: ' + str(self.fieldsDict['timestamp']))
-			debug('invalid timestamp')
-			self.sendReply(False)
-		else:
-			# timestamp update
-			self.accountHolders[self.fieldsDict['account']]['timestamp'] = float(self.fieldsDict['timestamp'])
-
+		if self.validateIncomingOperation():
 			message = ' $=' + str(self.accountHolders[self.fieldsDict['account']]['$']) + ' timestamp=' + self.fieldsDict['timestamp']
 
 			self.sendReply(True, message)
@@ -197,7 +183,33 @@ class Bank:
 		assert('action' in self.fieldsDict)
 		assert self.fieldsDict['action'] in self.actionList
 		self.actionList[self.fieldsDict['action']]()
-		
+
+	def validateIncomingOperation(self):
+		if self.fieldsDict['account'] not in self.accountHolders:
+			debug('account doesnt exist')
+			self.sendReply(False)
+			return False
+
+		elif self.accountHolders[self.fieldsDict['account']]['pin'] != self.fieldsDict['pin']:
+			debug('server pin: ' + self.accountHolders[self.fieldsDict['account']]['pin'])
+			debug('atm pin: ' + self.fieldsDict['pin'])
+			debug('invalid pin')
+			self.sendReply(False)
+			return False
+
+		elif self.accountHolders[self.fieldsDict['account']]['timestamp'] >= float(self.fieldsDict['timestamp']):
+			debug('sever timestamp: ' + self.accountHolders[self.fieldsDict['account']]['timestamp'])
+			debug('atm timestamp: ' + str(self.fieldsDict['timestamp']))
+			debug('invalid timestamp')
+			self.sendReply(False)
+			return False
+
+		else:
+			# update timestamp
+			self.accountHolders[self.fieldsDict['account']]['timestamp'] = float(self.fieldsDict['timestamp'])
+			return True
+
+
 try:
 	bankObject=Bank()	
 except ret255:

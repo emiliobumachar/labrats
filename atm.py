@@ -20,6 +20,9 @@ class Atm:
         self.timestamp = str(time.time())
         self.checkArguments()
 
+        if self.operation != 'n':
+            self.checkCardFile()
+
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((self.ipAddress, self.port)) #TODO: find best place to open socket connection
         self.treatOperation()
@@ -141,19 +144,6 @@ class Atm:
 
     def treatOperation(self):
         if self.operation == 'g':
-            if not os.path.isfile(self.cardFileName):
-                debug('Card file must exists')
-                raise ret255
-
-            with open (self.cardFileName, 'r') as cardFile:
-                self.accountPin = cardFile.readline()
-
-            if len(self.accountPin) <= 0:
-                debug('Card file must contain the pin')
-                raise ret255
-
-            debug('pin:' + self.accountPin)
-
             reply = sendPlainText(self.s, 'atmID=' + self.atmID + ' action=g atmAns=y account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
 
             if validateBankAnswer(reply, self.atmID, self.timestamp):
@@ -161,16 +151,16 @@ class Atm:
                 sys.stdout.flush()
 
         elif self.operation == 'w':
-                #print("Balance    ",balance)
-                Withdraw=float(input("Enter Withdraw amount  "))
-                if Withdraw>0:
-                        #forewardbalance=(balance-Withdraw)
-                        #print("Foreward Balance   ",forewardbalance)
-                        sendPlainText(self.s, 'atmID='+self.atmID+' action=w atmAns=y $='+str(Withdraw)+' account=SomeGuy')
-                #elif Withdraw > balance:
-                #        print("No funs in account")
-                else:
-                        print("None withdraw made")
+            if self.amount < 0:
+                debug('Withdraw must be positive')
+                raise ret255
+
+            reply = sendPlainText(self.s, 'atmID=' + self.atmID + ' action=w atmAns=y $=' + str(self.amount) + ' account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
+
+            if validateBankAnswer(reply, self.atmID, self.timestamp):
+                print('{"account":"' + self.account + '","withdraw":' + str(self.amount) + '}')
+                sys.stdout.flush()
+
 
         elif self.operation == 'd':
                 #print("Balance   ",balance)
@@ -200,6 +190,20 @@ class Atm:
 
                 print('{"account":"'+self.account+'","initial_balance":'+str(self.amount)+'}')
                 sys.stdout.flush()
+
+    def checkCardFile(self):
+        if not os.path.isfile(self.cardFileName):
+            debug('Card file must exists')
+            raise ret255
+
+        with open (self.cardFileName, 'r') as cardFile:
+            self.accountPin = cardFile.readline()
+
+        if len(self.accountPin) <= 0:
+            debug('Card file must contain the pin')
+            raise ret255
+
+        debug('pin:' + self.accountPin)
 
 try:
     atmObject=Atm()
