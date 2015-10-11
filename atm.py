@@ -16,9 +16,12 @@ class Atm:
         self.account = ''
         self.operation = ''
         self.amount = 0.0
+        self.accountPin = ''
+        self.timestamp = str(time.time())
         self.checkArguments()
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.connect((self.ipAddress, self.port)) #TODO: find best place to open socket connection
         self.treatOperation()
 
     def checkArguments(self):
@@ -98,8 +101,8 @@ class Atm:
                 or (sys.argv[index] == '-d')
                 or (sys.argv[index] == '-w'))
                 and (self.operation == '')):
-                index += 1
                 self.operation = sys.argv[index][1]
+                index += 1
                 self.amount = float(sys.argv[index])
 
             elif (((sys.argv[index][0:2] == '-n')
@@ -109,9 +112,8 @@ class Atm:
                 self.operation = sys.argv[index][1]
                 self.amount = float(sys.argv[index][2:])
 
-            # deposit operation
+            # get balance operation
             elif (sys.argv[index] == '-g') and (self.operation == ''):
-                index += 1
                 self.operation = 'g'
 
             else:
@@ -139,8 +141,24 @@ class Atm:
 
     def treatOperation(self):
         if self.operation == 'g':
-                #print("Balance   ",balance)
-                sendPlainText(self.s, 'atmID='+self.atmID+' action=g atmAns=y account=SomeGuy')
+            if not os.path.isfile(self.cardFileName):
+                debug('Card file must exists')
+                raise ret255
+
+            with open (self.cardFileName, 'r') as cardFile:
+                self.accountPin = cardFile.readline()
+
+            if len(self.accountPin) <= 0:
+                debug('Card file must contain the pin')
+                raise ret255
+
+            debug('pin:' + self.accountPin)
+
+            reply = sendPlainText(self.s, 'atmID=' + self.atmID + ' action=g atmAns=y account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
+
+            if validateBankAnswer(reply, self.atmID, self.timestamp):
+                print('{"account":"' + self.account + '","balance":' + reply['$'] + '}')
+                sys.stdout.flush()
 
         elif self.operation == 'w':
                 #print("Balance    ",balance)
@@ -174,24 +192,14 @@ class Atm:
                 debug('Initial balance less than the minimum allowed')
                 raise ret255
 
-            self.s.connect((self.ipAddress, self.port))
-            requestTimestamp = time.time()
-            reply = sendPlainText(self.s, 'atmID='+self.atmID+' action=n atmAns=y $='+str(self.amount)+' account='+ self.account + ' timestamp=' + str(requestTimestamp))
+            reply = sendPlainText(self.s, 'atmID='+self.atmID+' action=n atmAns=y $='+str(self.amount)+' account='+ self.account + ' timestamp=' + self.timestamp)
 
-            if reply['bankAns'] == 'n':
-                debug('Error in account creation')
-                raise ret255
-            elif reply['timestamp'] != str(requestTimestamp):
-                debug('Error in timestamp validation')
-                raise ret255
-            elif reply['atmID'] != self.atmID:
-                debug('Error in atm validation')
-                raise ret255
-            else:
+            if validateBankAnswer(reply, self.atmID, self.timestamp):
                 with open (self.cardFileName, 'w') as cardFile:
                     cardFile.write(reply['pin'])
 
-            print('{"account":"'+self.account+'","initial_balance":'+str(self.amount)+'}')
+                print('{"account":"'+self.account+'","initial_balance":'+str(self.amount)+'}')
+                sys.stdout.flush()
 
 try:
     atmObject=Atm()

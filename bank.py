@@ -115,13 +115,7 @@ class Bank:
 
 			
 	def sendReply(self, bankAnswer, bankMessage = ''):
-		replyText=('atmID='+self.fieldsDict['atmID']+
-				   #' msgCounter='+self.knownAtms[self.fieldsDict['atmID']]['outgoing']+
-				   #' replyTo='+self.fieldsDict['msgCounter']+
-				   ' bankAns='+{True:'y',False:'n'}[bankAnswer]+
-				   bankMessage)
-		if self.fieldsDict['action']=='g':
-			replyText=replyText+' $='+str(self.accountHolders[self.fieldsDict['account']])
+		replyText=('atmID=' + self.fieldsDict['atmID'] + ' bankAns='+{True:'y', False:'n'}[bankAnswer]+ bankMessage)
 
 		sendPlainText(self.cli_conn, replyText)
 		self.knownAtms[self.fieldsDict['atmID']]['outgoing']=str(1+int(self.knownAtms[self.fieldsDict['atmID']]['outgoing']))
@@ -132,13 +126,13 @@ class Bank:
 			self.sendReply(False)
 		else:
 			accountDetails = dict()
-			accountDetails['timestamp'] = self.fieldsDict['timestamp']
-			accountDetails['pin'] = rand.randint(0, 1e12)
+			accountDetails['timestamp'] = float(self.fieldsDict['timestamp'])
+			accountDetails['pin'] = str(rand.randint(0, 1e12))
 			accountDetails['$'] = self.fieldsDict['$']
 
 			self.accountHolders[self.fieldsDict['account']] = accountDetails
 
-			message = ' pin=' + str(accountDetails['pin']) + ' timestamp=' + str(accountDetails['timestamp'])
+			message = ' pin=' + str(accountDetails['pin']) + ' timestamp=' + self.fieldsDict['timestamp']
 
 			self.sendReply(True, message)
 			print('{"account":"'+self.fieldsDict['account']+'","initial_balance":'+str(self.fieldsDict['$'])+'}')
@@ -166,11 +160,30 @@ class Bank:
 			sys.stdout.flush()
 
 	def treatGetBalance(self):
-		if (self.fieldsDict['account'] not in self.accountHolders):
+		if self.fieldsDict['account'] not in self.accountHolders:
+			debug('account doesnt exist')
+			self.sendReply(False)
+
+		elif self.accountHolders[self.fieldsDict['account']]['pin'] != self.fieldsDict['pin']:
+			debug('server pin: ' + self.accountHolders[self.fieldsDict['account']]['pin'])
+			debug('atm pin: ' + self.fieldsDict['pin'])
+			debug('invalid pin')
+			self.sendReply(False)
+
+		elif self.accountHolders[self.fieldsDict['account']]['timestamp'] >= float(self.fieldsDict['timestamp']):
+			debug('sever timestamp: ' + self.accountHolders[self.fieldsDict['account']]['timestamp'])
+			debug('atm timestamp: ' + str(self.fieldsDict['timestamp']))
+			debug('invalid timestamp')
 			self.sendReply(False)
 		else:
-			self.sendReply(True)
-			print('{"account":"'+self.fieldsDict['account']+'","balance":'+str(self.accountHolders[self.fieldsDict['account']])+'}')
+			# timestamp update
+			self.accountHolders[self.fieldsDict['account']]['timestamp'] = float(self.fieldsDict['timestamp'])
+
+			message = ' $=' + str(self.accountHolders[self.fieldsDict['account']]['$']) + ' timestamp=' + self.fieldsDict['timestamp']
+
+			self.sendReply(True, message)
+
+			print('{"account":"'+self.fieldsDict['account']+'","balance":'+str(self.accountHolders[self.fieldsDict['account']]['$'])+'}')
 			sys.stdout.flush()
 	
 	def treatMessage(self, message):

@@ -2,6 +2,7 @@ import string
 import random
 import socket
 import re
+import sys
 
 rand=random.SystemRandom()
 
@@ -10,9 +11,12 @@ class ret255(Exception):
 LENGTH_OF_ALL_PLAINTEXTS = 333
 
 def sendPlainText(conn, pText):
-	tx=pText
-	tx+=' pad=x'
-	tx+=rand.choice(string.ascii_letters)*(LENGTH_OF_ALL_PLAINTEXTS-len(tx))
+	tx = pText
+	tx += ' pad=x'
+	tx += rand.choice(string.ascii_letters)*(LENGTH_OF_ALL_PLAINTEXTS-len(tx))
+
+	#debug('messageSent: ' + tx)
+
 	conn.send(tx)
 
 	reply = conn.recv(4096)
@@ -20,6 +24,7 @@ def sendPlainText(conn, pText):
 	
 def debug(s):
 	print(s) #change to 'pass' to deliver.
+	sys.stdout.flush()
 	
 def msgParse(msgPayload):
 	'''Returns a dictionary with the field titles as keys. Raises an error if signature does not match, decryption fails, or invalid field.'''
@@ -42,7 +47,7 @@ def msgParse(msgPayload):
 	fieldsTuples=[f.split('=') for f in fields]
 	fieldsDict = {ft[0]:ft[1] for ft in fieldsTuples}
 
-	debug('fieldsDict:' + str(fieldsDict))
+	#debug('fieldsDict:' + str(fieldsDict))
 
 	assert all(t in validTitles for t in fieldsDict)
 	return fieldsDict
@@ -61,3 +66,16 @@ def validateFileName(fileName):
 
 	if not re.match('^[_\-\.0-9a-z]{1,255}$', fileName):
 		raise ret255
+
+def validateBankAnswer(reply, atmID, timestamp):
+	if reply['bankAns'] == 'n':
+		debug('Error in operation')
+		raise ret255
+	elif reply['timestamp'] != timestamp:
+		debug('Error in timestamp validation')
+		raise ret255
+	elif reply['atmID'] != atmID:
+		debug('Error in atm validation')
+		raise ret255
+	else:
+		return True
