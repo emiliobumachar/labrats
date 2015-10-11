@@ -1,5 +1,7 @@
 import socket
 import sys
+import os
+import time
 from common import *
 
 debug("    RatLABS ATM    ")
@@ -17,7 +19,6 @@ class Atm:
         self.checkArguments()
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect((self.ipAddress, self.port))
         self.treatOperation()
 
     def checkArguments(self):
@@ -99,14 +100,14 @@ class Atm:
                 and (self.operation == '')):
                 index += 1
                 self.operation = sys.argv[index][1]
-                self.amount = str(sys.argv[index])
+                self.amount = float(sys.argv[index])
 
             elif (((sys.argv[index][0:2] == '-n')
-                or (sys.argv[index][0:2] == '-n')
-                or (sys.argv[index][0:2] == '-n'))
+                or (sys.argv[index][0:2] == '-d')
+                or (sys.argv[index][0:2] == '-w'))
                 and (self.operation == '')):
                 self.operation = sys.argv[index][1]
-                self.amount = str(sys.argv[index][2:])
+                self.amount = float(sys.argv[index][2:])
 
             # deposit operation
             elif (sys.argv[index] == '-g') and (self.operation == ''):
@@ -122,16 +123,19 @@ class Atm:
         if not accountSpecified:
             raise ret255
 
+        if not cardFileSpecified:
+            self.cardFileName = str(self.account) + '.card'
+
         validatePortNumber(self.port)
         validateFileName(self.authFileName)
 
-        debug('Atm contacting server on ip:', self.ipAddress)
-        debug('Atm contacting server on port:', self.port)
-        debug('AuthFile name:', self.authFileName)
-        debug('CardFile name:', self.cardFileName)
-        debug('Account:', self.account)
-        debug('Operation:', self.operation)
-        debug('Amount:', self.amount)
+        debug('Atm contacting server on ip:' + self.ipAddress)
+        debug('Atm contacting server on port:' + str(self.port))
+        debug('AuthFile name:' + self.authFileName)
+        debug('CardFile name:' + self.cardFileName)
+        debug('Account:' + self.account)
+        debug('Operation:' + self.operation)
+        debug('Amount:' + str(self.amount))
 
     def treatOperation(self):
         if self.operation == 'g':
@@ -162,12 +166,37 @@ class Atm:
                         sendPlainText(self.s, 'atmID='+self.atmID+' action=d atmAns=n $='+str(Deposit)+' account=SomeGuy')
 
         elif self.operation == 'n':
-                sendPlainText(self.s, 'atmID='+self.atmID+' action=n atmAns=y $='+str(balance)+' account=SomeGuy')
+            if os.path.isfile(self.cardFileName):
+                debug('Card file already exists')
+                raise ret255
+
+            elif self.amount < 10.00:
+                debug('Initial balance less than the minimum allowed')
+                raise ret255
+
+            self.s.connect((self.ipAddress, self.port))
+            requestTimestamp = time.time()
+            reply = sendPlainText(self.s, 'atmID='+self.atmID+' action=n atmAns=y $='+str(self.amount)+' account='+ self.account + ' timestamp=' + str(requestTimestamp))
+
+            if reply['bankAns'] == 'n':
+                debug('Error in account creation')
+                raise ret255
+            elif reply['timestamp'] != str(requestTimestamp):
+                debug('Error in timestamp validation')
+                raise ret255
+            elif reply['atmID'] != self.atmID:
+                debug('Error in atm validation')
+                raise ret255
+            else:
+                with open (self.cardFileName, 'w') as cardFile:
+                    cardFile.write(reply['pin'])
+
+            print('{"account":"'+self.account+'","initial_balance":'+str(self.amount)+'}')
 
 try:
     atmObject=Atm()
 except ret255:
     sys.exit(-1)
 except Exception, e:
-    debug('unexpected error:', e)
+    debug('unexpected error:' + str(e))
     sys.exit(-1)

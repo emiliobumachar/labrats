@@ -72,12 +72,12 @@ class Bank:
 		validatePortNumber(self.port)
 		validateFileName(self.authFileName)
 
-		debug('Bank server running on port:', self.port)
-		debug('AuthFile name:', self.authFileName)
+		debug('Bank server running on port:' + str(self.port))
+		debug('AuthFile name:' + self.authFileName)
 
 	def createAuthFile(self):
 		if os.path.isfile(self.authFileName):
-			debug('File already exists')
+			debug('Auth file already exists')
 			raise ret255
 		with open (self.authFileName,'w') as authFile:
 			authFile.write(str(self.secretKey))
@@ -94,11 +94,11 @@ class Bank:
 
 		while 1:
 			c = self.s.accept()
-			cli_conn, cli_addr = c
+			self.cli_conn, cli_addr = c
 
 			try:
-				data = cli_conn.recv(1024) # check buffer limit
-				debug( 'data:'+data)
+				data = self.cli_conn.recv(1024) # check buffer limit
+				debug( 'data:' + data)
 
 				#data = 'received: ' + data
 				self.treatMessage(data)
@@ -111,16 +111,18 @@ class Bank:
 				sys.stdout.flush()
 
 			finally:
-				cli_conn.close()
+				self.cli_conn.close()
 
 			
-	def sendReply(self, bankAnswer):
+	def sendReply(self, bankAnswer, bankMessage = ''):
 		replyText=('atmID='+self.fieldsDict['atmID']+
 				   #' msgCounter='+self.knownAtms[self.fieldsDict['atmID']]['outgoing']+
 				   #' replyTo='+self.fieldsDict['msgCounter']+
-				   ' bankAns='+{True:'y',False:'n'}[bankAnswer])
+				   ' bankAns='+{True:'y',False:'n'}[bankAnswer]+
+				   bankMessage)
 		if self.fieldsDict['action']=='g':
 			replyText=replyText+' $='+str(self.accountHolders[self.fieldsDict['account']])
+
 		sendPlainText(self.cli_conn, replyText)
 		self.knownAtms[self.fieldsDict['atmID']]['outgoing']=str(1+int(self.knownAtms[self.fieldsDict['atmID']]['outgoing']))
 		
@@ -129,8 +131,16 @@ class Bank:
 		or  self.fieldsDict['$']<10.00):
 			self.sendReply(False)
 		else:
-			self.accountHolders[self.fieldsDict['account']]=self.fieldsDict['$']
-			self.sendReply(True)
+			accountDetails = dict()
+			accountDetails['timestamp'] = self.fieldsDict['timestamp']
+			accountDetails['pin'] = rand.randint(0, 1e12)
+			accountDetails['$'] = self.fieldsDict['$']
+
+			self.accountHolders[self.fieldsDict['account']] = accountDetails
+
+			message = ' pin=' + str(accountDetails['pin']) + ' timestamp=' + str(accountDetails['timestamp'])
+
+			self.sendReply(True, message)
 			print('{"account":"'+self.fieldsDict['account']+'","initial_balance":'+str(self.fieldsDict['$'])+'}')
 			sys.stdout.flush()
 
@@ -180,5 +190,5 @@ try:
 except ret255:
 	sys.exit(-1)
 except Exception, e:
-	debug('unexpected error:', e)
+	debug('unexpected error:' + str(e))
 	sys.exit(-1)
