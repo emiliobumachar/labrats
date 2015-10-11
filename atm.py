@@ -2,7 +2,7 @@ import socket
 import sys
 from common import *
 
-print("    RatLABS ATM    ")
+debug("    RatLABS ATM    ")
 
 class Atm:
     def __init__(self):
@@ -21,9 +21,6 @@ class Atm:
         self.treatOperation()
 
     def checkArguments(self):
-        print sys.argv
-        #['./bank.py', '-p', '1024', '-s', 'auth.file']
-
         argc = len(sys.argv)
 
         if argc > 13:
@@ -117,7 +114,7 @@ class Atm:
                 self.operation = 'g'
 
             else:
-                print 'raise args'
+                debug('raise args')
                 raise ret255
 
             index += 1
@@ -128,13 +125,13 @@ class Atm:
         validatePortNumber(self.port)
         validateFileName(self.authFileName)
 
-        print 'Atm contacting server on ip:', self.ipAddress
-        print 'Atm contacting server on port:', self.port
-        print 'AuthFile name:', self.authFileName
-        print 'CardFile name:', self.cardFileName
-        print 'Account:', self.account
-        print 'Operation:', self.operation
-        print 'Amount:', self.amount
+        debug('Atm contacting server on ip:', self.ipAddress)
+        debug('Atm contacting server on port:', self.port)
+        debug('AuthFile name:', self.authFileName)
+        debug('CardFile name:', self.cardFileName)
+        debug('Account:', self.account)
+        debug('Operation:', self.operation)
+        debug('Amount:', self.amount)
 
     def treatOperation(self):
         if self.operation == 'g':
@@ -172,5 +169,5 @@ try:
 except ret255:
     sys.exit(-1)
 except Exception, e:
-    print 'unexpected error:', e
+    debug('unexpected error:', e)
     sys.exit(-1)

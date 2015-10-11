@@ -28,9 +28,6 @@ class Bank:
 		self.listen2network()
 		
 	def checkArguments(self):
-		#print sys.argv
-		#['./bank.py', '-p', '1024', '-s', 'auth.file']
-
 		argc = len(sys.argv)
 
 		if argc > 5:
@@ -75,8 +72,8 @@ class Bank:
 		validatePortNumber(self.port)
 		validateFileName(self.authFileName)
 
-		print 'Bank server running on port:', self.port
-		print 'AuthFile name:', self.authFileName
+		debug('Bank server running on port:', self.port)
+		debug('AuthFile name:', self.authFileName)
 
 	def createAuthFile(self):
 		if os.path.isfile(self.authFileName):
@@ -85,7 +82,7 @@ class Bank:
 		with open (self.authFileName,'w') as authFile:
 			authFile.write(str(self.secretKey))
 
-		print 'created\n'
+		print 'created'
 		sys.stdout.flush()
 
 	def exit_clean(self, signum, frame):
@@ -97,7 +94,7 @@ class Bank:
 
 		while 1:
 			c = self.s.accept()
-			cli_conn, cli_addr = self.c
+			cli_conn, cli_addr = c
 
 			try:
 				data = cli_conn.recv(1024) # check buffer limit
@@ -108,8 +105,9 @@ class Bank:
 
 				#self.cli_conn.send(data)
 
-			except:
-				print 'protocol_error\n'
+			except Exception, e:
+				print 'protocol_error'
+				debug(e)
 				sys.stdout.flush()
 
 			finally:
@@ -182,5 +180,5 @@ try:
 except ret255:
 	sys.exit(-1)
 except Exception, e:
-	print 'unexpected error:', e
+	debug('unexpected error:', e)
 	sys.exit(-1)
