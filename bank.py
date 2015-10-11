@@ -181,3 +181,6 @@ try:
 	bankObject=Bank()	
 except ret255:
 	sys.exit(-1)
+except Exception, e:
+	print 'unexpected error:', e
+	sys.exit(-1)
