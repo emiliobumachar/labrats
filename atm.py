@@ -24,7 +24,13 @@ class Atm:
             self.checkCardFile()
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect((self.ipAddress, self.port)) #TODO: find best place to open socket connection
+
+        with open(self.authFileName, 'r') as authFile:
+            keys = authFile.read().split('@@@@@')
+            self.bankPublicKey = RSA.importKey(keys[0])
+            self.secretKey = RSA.importKey(keys[1])
+            self.AESKey = keys[2]
+
         self.treatOperation()
 
     def checkArguments(self):
@@ -144,35 +150,24 @@ class Atm:
 
     def treatOperation(self):
         if self.operation == 'g':
-            reply = sendPlainText(self.s, 'atmID=' + self.atmID + ' action=g atmAns=y account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
-
-            if validateBankAnswer(reply, self.atmID, self.timestamp):
-                print('{"account":"' + self.account + '","balance":' + reply['$'] + '}')
-                sys.stdout.flush()
+            reply = self.sendMessageToBank('atmID=' + self.atmID + ' action=g atmAns=y account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
+            print('{"account":"' + self.account + '","balance":' + reply['$'] + '}')
 
         elif self.operation == 'w':
             if self.amount < 0:
                 debug('Withdraw must be positive')
                 raise ret255
 
-            reply = sendPlainText(self.s, 'atmID=' + self.atmID + ' action=w atmAns=y $=' + str(self.amount) + ' account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
-
-            if validateBankAnswer(reply, self.atmID, self.timestamp):
-                print('{"account":"' + self.account + '","withdraw":' + str(self.amount) + '}')
-                sys.stdout.flush()
-
+            self.sendMessageToBank('atmID=' + self.atmID + ' action=w atmAns=y $=' + str(self.amount) + ' account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
+            print('{"account":"' + self.account + '","withdraw":' + str(self.amount) + '}')
 
         elif self.operation == 'd':
             if self.amount < 0:
                 debug('Deposit must be positive')
                 raise ret255
 
-            reply = sendPlainText(self.s, 'atmID=' + self.atmID + ' action=d atmAns=y $=' + str(self.amount) + ' account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
-
-            if validateBankAnswer(reply, self.atmID, self.timestamp):
-                print('{"account":"' + self.account + '","deposit":' + str(self.amount) + '}')
-                sys.stdout.flush()
-
+            self.sendMessageToBank('atmID=' + self.atmID + ' action=d atmAns=y $=' + str(self.amount) + ' account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
+            print('{"account":"' + self.account + '","deposit":' + str(self.amount) + '}')
 
         elif self.operation == 'n':
             if os.path.isfile(self.cardFileName):
@@ -183,14 +178,14 @@ class Atm:
                 debug('Initial balance less than the minimum allowed')
                 raise ret255
 
-            reply = sendPlainText(self.s, 'atmID='+self.atmID+' action=n atmAns=y $='+str(self.amount)+' account='+ self.account + ' timestamp=' + self.timestamp)
+            reply = self.sendMessageToBank('atmID='+self.atmID+' action=n atmAns=y $='+str(self.amount)+' account='+ self.account + ' timestamp=' + self.timestamp)
 
-            if validateBankAnswer(reply, self.atmID, self.timestamp):
-                with open (self.cardFileName, 'w') as cardFile:
-                    cardFile.write(reply['pin'])
+            with open (self.cardFileName, 'w') as cardFile:
+                cardFile.write(reply['pin'])
 
-                print('{"account":"'+self.account+'","initial_balance":'+str(self.amount)+'}')
-                sys.stdout.flush()
+            print('{"account":"'+self.account+'","initial_balance":'+str(self.amount)+'}')
+
+        sys.stdout.flush()
 
     def checkCardFile(self):
         if not os.path.isfile(self.cardFileName):
@@ -205,6 +200,13 @@ class Atm:
             raise ret255
 
         debug('pin:' + self.accountPin)
+
+    def sendMessageToBank(self, message):
+        self.s.connect((self.ipAddress, self.port))
+        sendMessage(self.s, message, sEncryptionKey=self.AESKey, sSignatureKey=self.secretKey)
+        reply = receiveMessage(self.s, sEncryptionKey=self.AESKey, sSignatureKey=self.bankPublicKey)
+        validateBankAnswer(reply, self.atmID, self.timestamp)
+        return reply
 
 try:
     atmObject=Atm()

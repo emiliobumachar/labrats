@@ -5,6 +5,9 @@ import re
 import sys
 from Crypto.Cipher import AES
 from Crypto import Random
+from Crypto.Signature import PKCS1_v1_5
+from Crypto.Hash import SHA
+from Crypto.PublicKey import RSA
 
 rand=random.SystemRandom()
 
@@ -12,25 +15,52 @@ class ret255(Exception):
 	pass
 LENGTH_OF_ALL_PLAINTEXTS = 336
 
-def sendPlainText(conn, pText, sKey = ''):
+def sendMessage(conn, pText, sEncryptionKey, sSignatureKey):
 	tx = pText
 	tx += ' pad=x'
 	tx += rand.choice(string.ascii_letters)*(LENGTH_OF_ALL_PLAINTEXTS-len(tx))
 
 	def encrypt(plainText):
-		key = b'Sixteen byte key'
 		iv = Random.new().read(AES.block_size)
-		cipher = AES.new(key, AES.MODE_CBC, iv)
-		return iv + cipher.encrypt(plainText)
+		cipher = AES.new(sEncryptionKey, AES.MODE_CBC, iv)
+
+		cipherText = iv + cipher.encrypt(plainText)
+		#debug('iv+cipher len:' + str(len(cipherText)))
+		return cipherText
+
+	def signMessage(message):
+		h = SHA.new(message)
+		signer = PKCS1_v1_5.new(sSignatureKey)
+		signature = signer.sign(h)
+		#debug('signature len:' + str(len(signature)))
+		return message + signature
 
 	debug('messageSent: ' + tx)
 
-	conn.send(encrypt(tx))
+	conn.send(signMessage(encrypt(tx)))
 
-	reply = conn.recv(4096)
+def receiveMessage(conn, sEncryptionKey, sSignatureKey):
+	messageReceived = conn.recv(609)
 
-	if len(reply):
-		return msgParse(reply)
+	def checkSignature(message, signature):
+		h = SHA.new(message)
+		verifier = PKCS1_v1_5.new(sSignatureKey)
+
+		if verifier.verify(h, signature):
+			debug('The signature is authentic')
+			return message
+		else:
+			debug('The signature is not authentic')
+			raise ret255
+
+	def decrypt(cipherText):
+		iv = cipherText[0: AES.block_size]
+		cipher = AES.new(sEncryptionKey, AES.MODE_CBC, iv)
+		return cipher.decrypt(cipherText[AES.block_size:])
+
+	if len(messageReceived):
+		print messageReceived
+		return msgParse(decrypt(checkSignature(messageReceived[0:352], messageReceived[352:])))
 	
 def debug(s):
 	print(s) #change to 'pass' to deliver.
@@ -49,18 +79,7 @@ def msgParse(msgPayload):
 				 'pad',
 				 'pin']
 
-	def checkSignature(blob):
-		return blob
-
-	def decrypt(cipherText):
-		key = b'Sixteen byte key'
-		iv = cipherText[0: AES.block_size]
-		cipher = AES.new(key, AES.MODE_CBC, iv)
-		return cipher.decrypt(cipherText[AES.block_size:])
-
-	plainText=decrypt(checkSignature(msgPayload))
-
-	fields=plainText.split()
+	fields=msgPayload.split()
 	fieldsTuples=[f.split('=') for f in fields]
 	fieldsDict = {ft[0]:ft[1] for ft in fieldsTuples}
 
@@ -94,5 +113,3 @@ def validateBankAnswer(reply, atmID, timestamp):
 	elif reply['atmID'] != atmID:
 		debug('Error in atm validation')
 		raise ret255
-	else:
-		return True

@@ -3,6 +3,7 @@ import os
 import sys
 import signal
 from common import *
+from Crypto.PublicKey import RSA
 
 class Bank:
 
@@ -11,7 +12,8 @@ class Bank:
 		self.authFileName = 'bank.auth'
 		self.checkArguments()
 
-		self.secretKey=rand.randint(0,2**256-1)
+		self.secretKey = ''
+		self.atmPublicKey = ''
 		self.createAuthFile()
 
 		signal.signal(signal.SIGINT, self.exit_clean)
@@ -80,7 +82,26 @@ class Bank:
 			debug('Auth file already exists')
 			raise ret255
 		with open (self.authFileName,'w') as authFile:
-			authFile.write(str(self.secretKey))
+			# bank public key
+			self.secretKey = RSA.generate(2048)
+			publicKey = self.secretKey.publickey()
+			authFile.write(publicKey.exportKey('PEM'))
+
+			# keys separator
+			authFile.write('@@@@@')
+
+			# privateKey for ATM
+			atmPrivateKey = RSA.generate(2048)
+			authFile.write(atmPrivateKey.exportKey('PEM'))
+			self.atmPublicKey = atmPrivateKey.publickey()
+
+			# keys separator
+			authFile.write('@@@@@')
+
+			# AES encryption key
+			alphabet = string.printable.replace('@','')
+			self.AESKey = ''.join([rand.choice(alphabet) for byte in range(32)])
+			authFile.write(self.AESKey)
 
 		print 'created'
 		sys.stdout.flush()
@@ -93,14 +114,13 @@ class Bank:
 		self.s.listen(1)
 
 		while 1:
+			self.fieldsDict = dict()
+
 			c = self.s.accept()
 			self.cli_conn, cli_addr = c
 
 			try:
-				data = self.cli_conn.recv(1024) # check buffer limit
-				#debug( 'data:' + data)
-
-				self.treatMessage(data)
+				self.treatMessage(receiveMessage(self.cli_conn, sEncryptionKey=self.AESKey, sSignatureKey=self.atmPublicKey))
 
 			except Exception, e:
 				print 'protocol_error'
@@ -114,7 +134,7 @@ class Bank:
 	def sendReply(self, bankAnswer, bankMessage = ''):
 		replyText=('atmID=' + self.fieldsDict['atmID'] + ' bankAns='+{True:'y', False:'n'}[bankAnswer]+ bankMessage)
 
-		sendPlainText(self.cli_conn, replyText)
+		sendMessage(self.cli_conn, replyText, sEncryptionKey=self.AESKey, sSignatureKey=self.secretKey)
 		self.knownAtms[self.fieldsDict['atmID']]['outgoing']=str(1+int(self.knownAtms[self.fieldsDict['atmID']]['outgoing']))
 		
 	def treatNewAccount(self):
@@ -178,7 +198,7 @@ class Bank:
 			sys.stdout.flush()
 	
 	def treatMessage(self, message):
-		self.fieldsDict=msgParse(message)
+		self.fieldsDict = message
 		# delete this code if messageID is revoked, uncomment otherwise
 		# if self.fieldsDict['atmID'] in self.knownAtms:#not first contact
 			# if int(self.fieldsDict['msgCounter'])<=int(self.knownAtms[self.fieldsDict['atmID']]['incoming']): #replay attack or reorder attack!
