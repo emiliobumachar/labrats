@@ -89,7 +89,7 @@ class Bank:
 		sys.exit(0)
 
 	def listen2network(self):
-		self.s.bind(('127.0.0.1', 3000))
+		self.s.bind(('127.0.0.1', self.port))
 		self.s.listen(1)
 
 		while 1:
@@ -136,13 +136,18 @@ class Bank:
 			sys.stdout.flush()
 
 	def treatDeposit(self):
-		if (self.fieldsDict['account'] not in self.accountHolders
-		or  self.fieldsDict['$']<=0.00):
-			self.sendReply(False)
-		else:
-			self.accountHolders[self.fieldsDict['account']]=self.accountHolders[self.fieldsDict['account']]+self.fieldsDict['$']
-			self.sendReply(True)
-			print('{"account":"'+self.fieldsDict['account']+'","deposit":'+str(self.fieldsDict['$'])+'}')
+		if self.validateIncomingOperation():
+			depositAmount = float(self.fieldsDict['$'])
+
+			if depositAmount <= 0.00:
+				self.sendReply(False)
+			else:
+				self.accountHolders[self.fieldsDict['account']]['$'] += depositAmount
+
+			message = ' timestamp=' + self.fieldsDict['timestamp']
+
+			self.sendReply(True, message)
+			print('{"account":"' + self.fieldsDict['account'] + '","deposit":' + str(self.fieldsDict['$']) + '}')
 			sys.stdout.flush()
 
 	def treatWithdrawal(self):

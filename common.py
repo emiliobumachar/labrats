@@ -3,31 +3,41 @@ import random
 import socket
 import re
 import sys
+from Crypto.Cipher import AES
+from Crypto import Random
 
 rand=random.SystemRandom()
 
 class ret255(Exception):
 	pass
-LENGTH_OF_ALL_PLAINTEXTS = 333
+LENGTH_OF_ALL_PLAINTEXTS = 336
 
-def sendPlainText(conn, pText):
+def sendPlainText(conn, pText, sKey = ''):
 	tx = pText
 	tx += ' pad=x'
 	tx += rand.choice(string.ascii_letters)*(LENGTH_OF_ALL_PLAINTEXTS-len(tx))
 
-	#debug('messageSent: ' + tx)
+	def encrypt(plainText):
+		key = b'Sixteen byte key'
+		iv = Random.new().read(AES.block_size)
+		cipher = AES.new(key, AES.MODE_CBC, iv)
+		return iv + cipher.encrypt(plainText)
 
-	conn.send(tx)
+	debug('messageSent: ' + tx)
+
+	conn.send(encrypt(tx))
 
 	reply = conn.recv(4096)
-	return msgParse(reply)
+
+	if len(reply):
+		return msgParse(reply)
 	
 def debug(s):
 	print(s) #change to 'pass' to deliver.
 	sys.stdout.flush()
 	
 def msgParse(msgPayload):
-	'''Returns a dictionary with the field titles as keys. Raises an error if signature does not match, decryption fails, or invalid field.'''
+	#Returns a dictionary with the field titles as keys. Raises an error if signature does not match, decryption fails, or invalid field.
 	validTitles=['atmID',
 				 'timestamp',
 				 'replyTo',
@@ -38,11 +48,18 @@ def msgParse(msgPayload):
 				 'account',
 				 'pad',
 				 'pin']
+
 	def checkSignature(blob):
 		return blob
-	def decrypt(blob):
-		return blob
+
+	def decrypt(cipherText):
+		key = b'Sixteen byte key'
+		iv = cipherText[0: AES.block_size]
+		cipher = AES.new(key, AES.MODE_CBC, iv)
+		return cipher.decrypt(cipherText[AES.block_size:])
+
 	plainText=decrypt(checkSignature(msgPayload))
+
 	fields=plainText.split()
 	fieldsTuples=[f.split('=') for f in fields]
 	fieldsDict = {ft[0]:ft[1] for ft in fieldsTuples}

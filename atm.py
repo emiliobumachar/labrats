@@ -163,15 +163,16 @@ class Atm:
 
 
         elif self.operation == 'd':
-                #print("Balance   ",balance)
-                Deposit=float(input("Enter deposit amount  "))
-                if Deposit>0:
-                        #forewardbalance=(balance+Deposit)
-                        #print("Forewardbalance   ",forewardbalance)
-                        sendPlainText(self.s, 'atmID='+self.atmID+' action=d atmAns=y $='+str(Deposit)+' account=SomeGuy')
-                else:
-                        print("None deposit made")
-                        sendPlainText(self.s, 'atmID='+self.atmID+' action=d atmAns=n $='+str(Deposit)+' account=SomeGuy')
+            if self.amount < 0:
+                debug('Deposit must be positive')
+                raise ret255
+
+            reply = sendPlainText(self.s, 'atmID=' + self.atmID + ' action=d atmAns=y $=' + str(self.amount) + ' account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
+
+            if validateBankAnswer(reply, self.atmID, self.timestamp):
+                print('{"account":"' + self.account + '","deposit":' + str(self.amount) + '}')
+                sys.stdout.flush()
+
 
         elif self.operation == 'n':
             if os.path.isfile(self.cardFileName):
