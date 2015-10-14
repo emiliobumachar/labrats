@@ -67,8 +67,9 @@ def receiveMessage(conn, sEncryptionKey, sSignatureKey):
 		return msgParse(decrypt(checkSignature(messageReceived[0:352], messageReceived[352:])))
 	
 def debug(s):
-	print(s) #change to 'pass' to deliver.
-	sys.stdout.flush()
+	pass
+	#print(s) #change to 'pass' to deliver.
+	#sys.stdout.flush()
 	
 def msgParse(msgPayload):
 	#Returns a dictionary with the field titles as keys. Raises an error if signature does not match, decryption fails, or invalid field.
