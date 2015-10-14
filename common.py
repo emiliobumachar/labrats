@@ -7,6 +7,7 @@ import random
 import socket
 import re
 import sys
+from decimal import *
 from Crypto.Cipher import AES
 from Crypto import Random
 from Crypto.Signature import PKCS1_v1_5
@@ -14,9 +15,17 @@ from Crypto.Hash import SHA
 from Crypto.PublicKey import RSA
 
 rand=random.SystemRandom()
+getcontext().prec = 20
 
 class ret255(Exception):
 	pass
+
+class ret63(Exception):
+	pass
+
+class ret0(Exception):
+	pass
+
 LENGTH_OF_ALL_PLAINTEXTS = 336
 
 def sendMessage(conn, pText, sEncryptionKey, sSignatureKey):
@@ -27,19 +36,14 @@ def sendMessage(conn, pText, sEncryptionKey, sSignatureKey):
 	def encrypt(plainText):
 		iv = Random.new().read(AES.block_size)
 		cipher = AES.new(sEncryptionKey, AES.MODE_CBC, iv)
-
 		cipherText = iv + cipher.encrypt(plainText)
-		#debug('iv+cipher len:' + str(len(cipherText)))
 		return cipherText
 
 	def signMessage(message):
 		h = SHA.new(message)
 		signer = PKCS1_v1_5.new(sSignatureKey)
 		signature = signer.sign(h)
-		#debug('signature len:' + str(len(signature)))
 		return message + signature
-
-	debug('messageSent: ' + tx)
 
 	conn.send(signMessage(encrypt(tx)))
 
@@ -51,11 +55,9 @@ def receiveMessage(conn, sEncryptionKey, sSignatureKey):
 		verifier = PKCS1_v1_5.new(sSignatureKey)
 
 		if verifier.verify(h, signature):
-			debug('The signature is authentic')
 			return message
 		else:
-			debug('The signature is not authentic')
-			raise ret255
+			raise ret63
 
 	def decrypt(cipherText):
 		iv = cipherText[0: AES.block_size]
@@ -63,37 +65,52 @@ def receiveMessage(conn, sEncryptionKey, sSignatureKey):
 		return cipher.decrypt(cipherText[AES.block_size:])
 
 	if len(messageReceived):
-		print messageReceived
-		return msgParse(decrypt(checkSignature(messageReceived[0:352], messageReceived[352:])))
-	
+		try:
+			return msgParse(decrypt(checkSignature(messageReceived[0:352], messageReceived[352:])))
+		except:
+			raise ret63
+
 def debug(s):
-	print(s) #change to 'pass' to deliver.
+	#print(s) #change to 'pass' to deliver.
+	pass
 	sys.stdout.flush()
 	
 def msgParse(msgPayload):
-	#Returns a dictionary with the field titles as keys. Raises an error if signature does not match, decryption fails, or invalid field.
-	validTitles=['atmID',
-				 'timestamp',
-				 'replyTo',
-				 'bankAns',
-				 'action',
-				 'atmAns',
-				 '$',
-				 'account',
-				 'pad',
-				 'pin']
+	try:
+		validTitles=['atmID',
+					 'timestamp',
+					 'replyTo',
+					 'bankAns',
+					 'action',
+					 'atmAns',
+					 '$',
+					 'account',
+					 'pad',
+					 'pin']
 
-	fields=msgPayload.split()
-	fieldsTuples=[f.split('=') for f in fields]
-	fieldsDict = {ft[0]:ft[1] for ft in fieldsTuples}
+		fields=msgPayload.split()
+		fieldsTuples=[f.split('=') for f in fields]
+		fieldsDict = {ft[0]:ft[1] for ft in fieldsTuples}
 
-	#debug('fieldsDict:' + str(fieldsDict))
-
-	assert all(t in validTitles for t in fieldsDict)
-	return fieldsDict
+		assert all(t in validTitles for t in fieldsDict)
+		return fieldsDict
+	except:
+		raise ret63
 
 def validateNumbers(number):
 	if not re.match('^(0|[1-9][0-9]*)$', number):
+		raise ret255
+
+def validateCurrencyNumbers(number):
+	vNumber = number.split('.')
+
+	if len(vNumber) != 2:
+		raise ret255
+
+	if not re.match('^(0|[1-9][0-9]*)$', vNumber[0]):
+		raise ret255
+
+	if not re.match('^[0-9]{2}$', vNumber[1]):
 		raise ret255
 
 def validatePortNumber(port):
@@ -105,6 +122,25 @@ def validateFileName(fileName):
 		raise ret255
 
 	if not re.match('^[_\-\.0-9a-z]{1,255}$', fileName):
+		raise ret255
+
+def validateIPAddress(sIP):
+	vIP = sIP.split('.')
+
+	if len(vIP) != 4:
+		raise ret255
+	else:
+		for block in vIP:
+			validateNumbers(block)
+			if int(block) < 0 or int(block) > 255:
+				raise ret255
+
+def validateAccountName(sAccount):
+	if len(sAccount) < 1 or len(sAccount) > 255:
+		raise ret255
+
+def validateAmount(amount):
+	if amount < Decimal('0.00') or amount > Decimal('4294967295.99'):
 		raise ret255
 
 def validateBankAnswer(reply, atmID, timestamp):

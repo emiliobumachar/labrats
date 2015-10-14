@@ -2,6 +2,8 @@ import socket
 import os
 import sys
 import signal
+from decimal import *
+
 try: 
     commonAlreadyHere
 except NameError:
@@ -110,7 +112,8 @@ class Bank:
 		sys.stdout.flush()
 
 	def exit_clean(self, signum, frame):
-		sys.exit(0)
+		self.cli_conn.close()
+		raise ret0
 
 	def listen2network(self):
 		self.s.bind(('127.0.0.1', self.port))
@@ -125,11 +128,13 @@ class Bank:
 			try:
 				self.treatMessage(receiveMessage(self.cli_conn, sEncryptionKey=self.AESKey, sSignatureKey=self.atmPublicKey))
 
-			except Exception, e:
-				print 'protocol_error'
-				debug(e)
+			except ret255:
 				sys.stdout.flush()
-
+			except ret63:
+				print 'protocol_error'
+				sys.stdout.flush()
+			except Exception, e:
+				debug('Exception' + str(e))
 			finally:
 				self.cli_conn.close()
 
@@ -142,27 +147,27 @@ class Bank:
 		
 	def treatNewAccount(self):
 		if (self.fieldsDict['account'] in self.accountHolders
-		or  self.fieldsDict['$']<10.00):
+		or  self.fieldsDict['$'] < Decimal('10.00')):
 			self.sendReply(False)
 		else:
 			accountDetails = dict()
 			accountDetails['timestamp'] = float(self.fieldsDict['timestamp'])
 			accountDetails['pin'] = str(rand.randint(0, 1e12))
-			accountDetails['$'] = float(self.fieldsDict['$'])
+			accountDetails['$'] = Decimal(self.fieldsDict['$'])
 
 			self.accountHolders[self.fieldsDict['account']] = accountDetails
 
 			message = ' pin=' + str(accountDetails['pin']) + ' timestamp=' + self.fieldsDict['timestamp']
 
 			self.sendReply(True, message)
-			print('{"account":"'+self.fieldsDict['account']+'","initial_balance":'+str(self.fieldsDict['$'])+'}')
+			print('{"account":"'+self.fieldsDict['account']+'","initial_balance":%.2f}') % accountDetails['$']
 			sys.stdout.flush()
 
 	def treatDeposit(self):
 		if self.validateIncomingOperation():
-			depositAmount = float(self.fieldsDict['$'])
+			depositAmount = Decimal(self.fieldsDict['$'])
 
-			if depositAmount <= 0.00:
+			if depositAmount <= Decimal('0.00'):
 				self.sendReply(False)
 			else:
 				self.accountHolders[self.fieldsDict['account']]['$'] += depositAmount
@@ -170,15 +175,15 @@ class Bank:
 			message = ' timestamp=' + self.fieldsDict['timestamp']
 
 			self.sendReply(True, message)
-			print('{"account":"' + self.fieldsDict['account'] + '","deposit":' + str(self.fieldsDict['$']) + '}')
+			print('{"account":"' + self.fieldsDict['account'] + '","deposit":%.2f}') % depositAmount
 			sys.stdout.flush()
 
 	def treatWithdrawal(self):
 		if self.validateIncomingOperation():
 			currentBalance = self.accountHolders[self.fieldsDict['account']]['$']
-			withdrawAmount = float(self.fieldsDict['$'])
+			withdrawAmount = Decimal(self.fieldsDict['$'])
 
-			if  (self.fieldsDict['$'] <= 0.00
+			if  (self.fieldsDict['$'] <= Decimal('0.00')
 				or  currentBalance < withdrawAmount):
 				self.sendReply(False)
 			else:
@@ -188,7 +193,7 @@ class Bank:
 
 				self.sendReply(True, message)
 
-				print('{"account":"' + self.fieldsDict['account'] + '","withdraw":' + self.fieldsDict['$'] + '}')
+				print('{"account":"' + self.fieldsDict['account'] + '","withdraw":%.2f}') % withdrawAmount
 				sys.stdout.flush()
 
 	def treatGetBalance(self):
@@ -197,7 +202,7 @@ class Bank:
 
 			self.sendReply(True, message)
 
-			print('{"account":"'+self.fieldsDict['account']+'","balance":'+str(self.accountHolders[self.fieldsDict['account']]['$'])+'}')
+			print('{"account":"'+self.fieldsDict['account']+'","balance":%.2f}') % self.accountHolders[self.fieldsDict['account']]['$']
 			sys.stdout.flush()
 	
 	def treatMessage(self, message):
@@ -242,6 +247,8 @@ try:
 	bankObject=Bank()	
 except ret255:
 	sys.exit(-1)
+except ret0:
+	sys.exit(0)
 except Exception, e:
-	debug('unexpected error:' + str(e))
+	debug('Exception: ' + str(e))
 	sys.exit(-1)

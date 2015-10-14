@@ -2,7 +2,9 @@ import socket
 import sys
 import os
 import time
-try: 
+from decimal import *
+
+try:
     commonAlreadyHere
 except NameError:
     from common import *
@@ -18,7 +20,7 @@ class Atm:
         self.cardFileName = ''
         self.account = ''
         self.operation = ''
-        self.amount = 0.0
+        self.amount = ''
         self.accountPin = ''
         self.timestamp = str(time.time())
         self.checkArguments()
@@ -27,6 +29,7 @@ class Atm:
             self.checkCardFile()
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.settimeout(10.0)
 
         with open(self.authFileName, 'r') as authFile:
             keys = authFile.read().split('@@@@@')
@@ -115,14 +118,14 @@ class Atm:
                 and (self.operation == '')):
                 self.operation = sys.argv[index][1]
                 index += 1
-                self.amount = float(sys.argv[index])
+                self.amount = sys.argv[index]
 
             elif (((sys.argv[index][0:2] == '-n')
                 or (sys.argv[index][0:2] == '-d')
                 or (sys.argv[index][0:2] == '-w'))
                 and (self.operation == '')):
                 self.operation = sys.argv[index][1]
-                self.amount = float(sys.argv[index][2:])
+                self.amount = sys.argv[index][2:]
 
             # get balance operation
             elif (sys.argv[index] == '-g') and (self.operation == ''):
@@ -140,8 +143,22 @@ class Atm:
         if not cardFileSpecified:
             self.cardFileName = str(self.account) + '.card'
 
+        debug('validating port')
         validatePortNumber(self.port)
+        debug('validating auth file name')
         validateFileName(self.authFileName)
+        debug('validating card file name')
+        validateFileName(self.cardFileName)
+        debug('validating ip')
+        validateIPAddress(self.ipAddress)
+        debug('validating account name')
+        validateAccountName(self.account)
+
+        if len(self.amount) > 0:
+            debug('validating amount')
+            validateCurrencyNumbers(self.amount)
+            self.amount = Decimal(self.amount)
+            validateAmount(self.amount)
 
         debug('Atm contacting server on ip:' + self.ipAddress)
         debug('Atm contacting server on port:' + str(self.port))
@@ -154,23 +171,23 @@ class Atm:
     def treatOperation(self):
         if self.operation == 'g':
             reply = self.sendMessageToBank('atmID=' + self.atmID + ' action=g atmAns=y account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
-            print('{"account":"' + self.account + '","balance":' + reply['$'] + '}')
+            print('{"account":"' + self.account + '","balance":%.2f}') % Decimal(reply['$'])
 
         elif self.operation == 'w':
-            if self.amount < 0:
+            if self.amount <= Decimal('0.00'):
                 debug('Withdraw must be positive')
                 raise ret255
 
             self.sendMessageToBank('atmID=' + self.atmID + ' action=w atmAns=y $=' + str(self.amount) + ' account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
-            print('{"account":"' + self.account + '","withdraw":' + str(self.amount) + '}')
+            print('{"account":"' + self.account + '","withdraw":%.2f}') % self.amount
 
         elif self.operation == 'd':
-            if self.amount < 0:
+            if self.amount <= Decimal('0.00'):
                 debug('Deposit must be positive')
                 raise ret255
 
             self.sendMessageToBank('atmID=' + self.atmID + ' action=d atmAns=y $=' + str(self.amount) + ' account=' + self.account + ' pin=' + self.accountPin + ' timestamp=' + self.timestamp)
-            print('{"account":"' + self.account + '","deposit":' + str(self.amount) + '}')
+            print('{"account":"' + self.account + '","deposit":%.2f}') % self.amount
 
         elif self.operation == 'n':
             if os.path.isfile(self.cardFileName):
@@ -186,7 +203,7 @@ class Atm:
             with open (self.cardFileName, 'w') as cardFile:
                 cardFile.write(reply['pin'])
 
-            print('{"account":"'+self.account+'","initial_balance":'+str(self.amount)+'}')
+            print('{"account":"'+self.account+'","initial_balance":%.2f}') % self.amount
 
         sys.stdout.flush()
 
@@ -213,8 +230,12 @@ class Atm:
 
 try:
     atmObject=Atm()
+    raise ret0
 except ret255:
     sys.exit(-1)
-except Exception, e:
-    debug('unexpected error:' + str(e))
+except ret63:
+    sys.exit(63)
+except ret0:
+    sys.exit(0)
+except:
     sys.exit(-1)
