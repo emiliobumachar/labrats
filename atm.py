@@ -1,9 +1,11 @@
-#!/usr/bin/python
 import socket
 import sys
 import os
 import time
-from common import *
+try: 
+    commonAlreadyHere
+except NameError:
+    from common import *
 
 debug("    RatLABS ATM    ")
 

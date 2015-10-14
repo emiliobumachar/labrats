@@ -1,3 +1,7 @@
+#!/usr/bin/python
+
+commonAlreadyHere=True
+
 import string
 import random
 import socket

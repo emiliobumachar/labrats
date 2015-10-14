@@ -1,9 +1,11 @@
-#!/usr/bin/python
 import socket
 import os
 import sys
 import signal
-from common import *
+try: 
+    commonAlreadyHere
+except NameError:
+    from common import *
 from Crypto.PublicKey import RSA
 
 class Bank:
