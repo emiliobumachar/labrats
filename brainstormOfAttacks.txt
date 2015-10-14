@@ -1,3 +1,4 @@
 replay attack, deposit 10 dollars in my account, make it count as 1000.
 withdraw exactly $0.00, as explicitly disclaimed by the spec
 make the bank overwrite program files.
+try to open a new bank account with an existing account name. Hope this overwrites the card file before the bank's invalidating check.
