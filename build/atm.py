@@ -226,12 +226,15 @@ class Atm:
         sendMessage(self.s, message, sEncryptionKey=self.AESKey, sSignatureKey=self.secretKey)
         reply = receiveMessage(self.s, sEncryptionKey=self.AESKey, sSignatureKey=self.bankPublicKey)
         validateBankAnswer(reply, self.atmID, self.timestamp)
+        self.s.shutdown(socket.SHUT_RDWR)
+        self.s.close()
         return reply
 
 try:
     atmObject=Atm()
     raise ret0
-except ret255:
+except ret255, e:
+    debug('ret255: ' + str(e))
     sys.exit(-1)
 except ret63:
     sys.exit(63)

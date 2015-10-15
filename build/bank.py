@@ -112,10 +112,12 @@ class Bank:
 		sys.stdout.flush()
 
 	def exit_clean(self, signum, frame):
-		self.cli_conn.close()
+		self.s.shutdown(socket.SHUT_RDWR)
+		self.s.close()
 		raise ret0
 
 	def listen2network(self):
+		self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		self.s.bind(('127.0.0.1', self.port))
 		self.s.listen(1)
 
@@ -136,6 +138,7 @@ class Bank:
 			except Exception, e:
 				debug('Exception' + str(e))
 			finally:
+				self.cli_conn.shutdown(socket.SHUT_RDWR)
 				self.cli_conn.close()
 
 			
@@ -245,7 +248,8 @@ class Bank:
 
 try:
 	bankObject=Bank()	
-except ret255:
+except ret255, e:
+	debug('ret255: ' + str(e))
 	sys.exit(-1)
 except ret0:
 	sys.exit(0)

@@ -72,9 +72,12 @@ def receiveMessage(conn, sEncryptionKey, sSignatureKey):
 
 def debug(s):
 	#print(s) #change to 'pass' to deliver.
+	#with open('/home/bibi/PycharmProjects/labrats/tests/debug.txt', 'a') as debugFile:
+	#	debugFile.write(s)
+	#	debugFile.write('\n')
+
 	pass
-	sys.stdout.flush()
-	
+
 def msgParse(msgPayload):
 	try:
 		validTitles=['atmID',
